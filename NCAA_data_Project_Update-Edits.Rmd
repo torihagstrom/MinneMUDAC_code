@@ -1,0 +1,225 @@
+---
+title: "MinneMUDAC Student Data Challenge"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Using NCAA 2019 Data to find prediction Models for NCAA 2021 Playoff Bracket
+
+## Authors: Leena Sebastin, Sydney Grohman, and Tori Hagstrom
+
+### First some packages to load and data to read in:
+
+```{r, warnings=FALSE}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(glmulti)
+library(readxl)
+library(readr)
+library(readxl)
+
+cbb2019_csv <- read_excel("/Users/torihagstrom1/Desktop/ncaa_data/cbb2019.csv.xlsx") #A data set found on Kaggle that has NCAA men's basketball data from 2019
+cbb2021_csv <- read_excel("/Users/torihagstrom1/Desktop/ncaa_data/cbb2021.xlsx") #A data set we created for current 2021 data found using NCAA and ESPN websites
+```
+
+## Variables we want to test in different models:
+
+### EFG_O = Field Goal Percentage
+### EFG_D = Field Goal Percentage Allowed
+### FTR = Free Throw Rate
+### Wins = Number of Wins
+### ThrP_O = Three point percentage
+### ThrP_D = Three point percentage allowed
+### SEED = seed in tournament
+
+
+## Comparing all possible logistic regression models to determine the best models to predict which teams make it past the first round.
+
+```{r cbb2019_csv, echo=FALSE, warning=FALSE}
+
+glmulti.logistic.FirstRound <-
+  glmulti(FirstRound ~ EFG_O + EFG_D + FTR + Wins + ThrP_O + ThrP_D + SEED + Wins, data = cbb2019_csv,
+          level = 1,               # No interaction considered
+          method = "h",            # Exhaustive approach
+          crit = "aic",            # AIC as criteria
+          confsetsize = 5,         # Keep 5 best models
+          plotty = F, report = F,  # No plot or interim reports
+          fitfunction = "glm",     # glm function
+          family = binomial)       # binomial family for logistic regression
+
+## Show 5 best models (Use @ instead of $ for an S4 object)
+glmulti.logistic.FirstRound@formulas
+
+```
+
+## The model we chose to predict which teams would win their first round game:
+
+### PastFirstRound ~ 1 + Wins + ThrP_D + SEED
+
+#### The Model & Our predictions:
+
+```{r, warning=FALSE}
+
+#Our Model
+Model_PastFirstRound <- glm(FirstRound ~ 1 + Wins + ThrP_D + SEED, data = cbb2019_csv, family = binomial)
+
+# Show the model coefficients
+summary(Model_PastFirstRound)
+
+# add the predictions to the 2021 data
+cbb2021_csv <- 
+    cbb2021_csv %>%
+    mutate(first_round_pred = predict(Model_PastFirstRound, cbb2021_csv, type="response"))
+```
+
+## Past the first round model with coefficients:
+### PastFirstRound = 12.727+0.114* Wins-0.425*Thr_PD-0.203* SEED
+
+## Comparing all possible logistic regression models to determine the best model to predict which teams make it past the second round.
+
+```{r, echo=FALSE, warning=FALSE}
+
+
+glmulti.logistic.SecondRound <-
+  glmulti(SecondRound~ EFG_O + EFG_D + FTR + Wins + ThrP_O + ThrP_D + SEED + Wins, data = cbb2019_csv,
+          level = 1,               # No interaction considered
+          method = "h",            # Exhaustive approach
+          crit = "aic",            # AIC as criteria
+          confsetsize = 5,         # Keep 5 best models
+          plotty = F, report = F,  # No plot or interim reports
+          fitfunction = "glm",     # glm function
+          family = binomial)       # binomial family for logistic regression
+
+## Show 5 best models (Use @ instead of $ for an S4 object)
+glmulti.logistic.SecondRound@formulas
+```
+
+# The model we chose to predict which teams would win their second round game:
+
+## SecondRound ~ 1 + ThrP_D + SEED
+
+### The Model & Our Predictions:
+
+```{r, warning=FALSE}
+
+#Our Model
+Model_SecondRound <- glm(SecondRound ~ 1 + ThrP_D + SEED, data = cbb2019_csv, family = binomial)
+# Show model coefficients 
+summary(Model_SecondRound)
+# Add the predictions to the 2021 data like this:
+cbb2021_csv <- 
+    cbb2021_csv %>%
+    mutate(second_round_pred = predict(Model_SecondRound, cbb2021_csv, type="response"))
+
+
+```
+## Past Second Round model with Coefficients:
+
+### PastSecondRound = 17.924-0.4699*ThreP_D-0.6402*SEED
+
+
+
+## Comparing all possible logistic regression models to determine the best model to predict which teams make it past the Sweet Sixteen round:
+
+```{r, warning=FALSE}
+glmulti.logistic.SweetSixteen <-
+  glmulti(SweetSixteen ~ EFG_O + EFG_D + FTR + Wins + ThrP_O + ThrP_D + SEED + Wins, data = cbb2019_csv,
+          level = 1,               # No interaction considered
+          method = "h",            # Exhaustive approach
+          crit = "aic",            # AIC as criteria
+          confsetsize = 5,         # Keep 5 best models
+          plotty = F, report = F,  # No plot or interim reports
+          fitfunction = "glm",     # glm function
+          family = binomial)       # binomial family for logistic regression
+
+
+## Show 5 best models (Use @ instead of $ for an S4 object)
+glmulti.logistic.SweetSixteen@formulas
+```
+
+# The model we chose to predict which teams would win their sweet sixteen game, Now using 2018 & 2019 Bracket Data:
+
+## Best model: SweetSixteen ~ 1 + ThrP_D + SEED
+
+### The Model & Our Predictions:
+
+
+```{r, warning=FALSE}
+Model_PastSweetSixteen <- glm(SweetSixteen ~ 1 + ThrP_D + SEED, data = cbb2019_csv, family=binomial)
+Model_PastSweetSixteen
+
+# Show the model coefficients
+summary(Model_PastSweetSixteen)
+
+# add the predictions to the 2021 data
+cbb2021_csv <- 
+    cbb2021_csv %>%
+    mutate(sweetsixteen_pred = predict(Model_PastSweetSixteen, cbb2021_csv, type="response"))
+
+
+
+```
+
+## Past the Sweet Sixteen Round model with coefficients:
+
+### PastSweetSixteen = 8.0797-0.1858*ThrP_D-0.6099*SEED
+
+
+## Comparing all possible logistic regression models to determine the best model to predict which teams make it past the Elite Eight. Using data from 2016-2019 to create an effective logistic model. 
+
+
+```{r, warning=FALSE}
+glmulti.logistic.PastEliteEight <-
+  glmulti(EliteEight ~ EFG_O + EFG_D + FTR + Wins + ThrP_O + ThrP_D + SEED + Wins, data = cbb2019_csv,
+          level = 1,               # No interaction considered
+          method = "h",            # Exhaustive approach
+          crit = "aic",            # AIC as criteria
+          confsetsize = 5,         # Keep 5 best models
+          plotty = F, report = F,  # No plot or interim reports
+          fitfunction = "glm",     # glm function
+          family = binomial)       # binomial family for logistic regression
+
+## Show 5 best models (Use @ instead of $ for an S4 object)
+glmulti.logistic.PastEliteEight@formulas
+```
+
+# The model we chose to predict which teams would win their elite eight game, Now using 2016-2019 Bracket Data:
+
+## EliteEight ~ 1 + SEED
+
+### The Model & Our Predictions:
+
+```{r, warning=FALSE}
+Model_PastEliteEight <- glm(EliteEight ~ 1 + SEED, data = cbb2019_csv, family = binomial)
+Model_PastEliteEight
+
+# Show the model coefficients
+summary(Model_PastEliteEight)
+
+# add the predictions to the 2021 data
+cbb2021_csv <- 
+    cbb2021_csv %>%
+    mutate(eliteeight_pred = predict(Model_PastEliteEight, cbb2021_csv, type="response"))
+
+```
+
+
+
+### To predict what teams advance past the Final Four and the Champion, we will be comparing the predicted probabilites in the first round model created to see who advances to the championship round and ultimately wins. 
+
+
+##Sources for data and resources used to help us create our models...
+
+
+
+
+
+
+
+
+
+
